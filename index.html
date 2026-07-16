@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Typer — 构建出色的命令行程序 · 中文文档</title>
+  <meta name="description" content="Typer 是一个用于构建 CLI 命令行程序的 Python 库，基于类型注解。编写轻松，使用方便，自动补全。命令行程序界的 FastAPI。">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230d0e11'/><text x='50' y='72' font-size='60' text-anchor='middle' font-family='monospace' font-weight='bold' fill='%23f59e0b'>T</text></svg>">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'ink': '#0d0e11',
+            'ink-2': '#16181d',
+            'ink-3': '#1e2026',
+            'line': '#2a2d35',
+            'line-2': '#363942',
+            'txt': '#e8e8ed',
+            'txt-dim': '#8b8d96',
+            'txt-faint': '#5a5c64',
+            'amber': '#f59e0b',
+            'amber-br': '#fbbf24',
+            'emerald': '#34d399',
+            'rose': '#fb7185',
+            'indigo-soft': '#818cf8',
+          },
+          fontFamily: {
+            'display': ['Space Grotesk', 'sans-serif'],
+            'body': ['DM Sans', 'sans-serif'],
+            'mono': ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --bg: #0d0e11;
+      --surface: #16181d;
+      --surface-2: #1e2026;
+      --border: #2a2d35;
+      --border-2: #363942;
+      --text: #e8e8ed;
+      --text-dim: #8b8d96;
+      --text-faint: #5a5c64;
+      --amber: #f59e0b;
+      --amber-br: #fbbf24;
+      --emerald: #34d399;
+      --rose: #fb7185;
+      --indigo-soft: #818cf8;
+    }
+
+    * { -webkit-font-smoothing: antialiased; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* --- Atmosphere --- */
+    .atmosphere {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 80% 50% at 70% 0%, rgba(245, 158, 11, 0.06), transparent 60%),
+        radial-gradient(ellipse 60% 40% at 20% 60%, rgba(52, 211, 153, 0.04), transparent 50%),
+        radial-gradient(ellipse 50% 30% at 90% 80%, rgba(129, 140, 248, 0.03), transparent 50%);
+    }
+
+    .noise {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' /%3E%3C/svg%3E");
+    }
+
+    .grid-bg {
+      background-image:
+        linear-gradient(to right, rgba(42, 45, 53, 0.4) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(42, 45, 53, 0.4) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+
+    /* --- Scroll Reveal --- */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal.in {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* --- Terminal Window --- */
+    .term-window {
+      background: #0a0b0d;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+        0 24px 48px -16px rgba(0, 0, 0, 0.6),
+        0 0 60px -20px rgba(245, 158, 11, 0.12);
+    }
+
+    .term-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: #111214;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .term-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .term-body {
+      padding: 18px 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13.5px;
+      line-height: 1.7;
+      color: #c8c9ce;
+    }
+
+    .term-prompt { color: var(--emerald); }
+    .term-cmd { color: var(--text); }
+    .term-amber { color: var(--amber-br); }
+    .term-comment { color: var(--text-faint); font-style: italic; }
+    .term-success { color: var(--emerald); }
+    .term-error { color: var(--rose); }
+    .term-dim { color: var(--text-dim); }
+    .term-box { color: var(--text-dim); }
+
+    .cursor-blink {
+      display: inline-block;
+      width: 8px;
+      height: 16px;
+      background: var(--amber);
+      vertical-align: text-bottom;
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+
+    /* --- Terminal typing animation --- */
+    .type-line {
+      overflow: hidden;
+      white-space: pre;
+      border-right: 0;
+    }
+
+    /* --- Code Block --- */
+    .code-block {
+      background: #0a0b0d;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .code-body {
+      padding: 20px 24px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13.5px;
+      line-height: 1.75;
+      overflow-x: auto;
+    }
+
+    .py-kw { color: #ff7b72; }
+    .py-str { color: #a5d6ff; }
+    .py-func { color: #d2a8ff; }
+    .py-var { color: #79c0ff; }
+    .py-num { color: #f0883e; }
+    .py-com { color: #6e7681; font-style: italic; }
+    .py-dec { color: #ff7b72; }
+    .py-builtin { color: #ffa657; }
+    .py-plain { color: #c9d1d9; }
+    .py-highlight {
+      background: rgba(245, 158, 11, 0.1);
+      display: block;
+      margin: 0 -24px;
+      padding: 0 24px;
+      border-left: 2px solid var(--amber);
+    }
+
+    /* --- Bento Card --- */
+    .bento-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      transition: border-color 0.3s, transform 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bento-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at var(--mx, 50%) var(--my, 0%), rgba(245, 158, 11, 0.06), transparent 60%);
+      opacity: 0;
+      transition: opacity 0.4s;
+      pointer-events: none;
+    }
+
+    .bento-card:hover::before { opacity: 1; }
+    .bento-card:hover { border-color: var(--border-2); }
+
+    /* --- Nav --- */
+    .nav-glass {
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: rgba(13, 14, 17, 0.7);
+      border-bottom: 1px solid rgba(42, 45, 53, 0.5);
+    }
+
+    /* --- Section label --- */
+    .sec-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--amber);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sec-label::before {
+      content: '';
+      width: 24px;
+      height: 1px;
+      background: var(--amber);
+      opacity: 0.5;
+    }
+
+    /* --- Misc --- */
+    .hl-amber { color: var(--amber-br); }
+    .hl-emerald { color: var(--emerald); }
+    .hl-rose { color: var(--rose); }
+    .hl-indigo { color: var(--indigo-soft); }
+
+    ::selection {
+      background: rgba(245, 158, 11, 0.25);
+      color: #fff;
+    }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-2); }
+
+    /* terminal frame deco */
+    .term-frame-deco {
+      position: absolute;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text-faint);
+      letter-spacing: 0.1em;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+      .reveal { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body class="font-body">
+
+  <div class="atmosphere"></div>
+  <div class="noise"></div>
+
+  <!-- ============ NAV ============ -->
+  <nav class="nav-glass fixed top-0 left-0 right-0 z-50">
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
+      <a href="#top" class="flex items-center gap-2.5 group">
+        <div class="w-9 h-9 rounded-lg bg-amber flex items-center justify-center font-mono font-bold text-ink text-lg transition-transform group-hover:scale-105">T</div>
+        <span class="font-display font-semibold text-lg tracking-tight">Typer</span>
+        <span class="hidden sm:inline text-xs font-mono text-txt-faint ml-1">v0.16+</span>
+      </a>
+      <div class="hidden md:flex items-center gap-1 text-sm">
+        <a href="#features" class="px-3 py-2 text-txt-dim hover:text-txt transition-colors">特性</a>
+        <a href="#install" class="px-3 py-2 text-txt-dim hover:text-txt transition-colors">安装</a>
+        <a href="#quickstart" class="px-3 py-2 text-txt-dim hover:text-txt transition-colors">快速开始</a>
+        <a href="#advanced" class="px-3 py-2 text-txt-dim hover:text-txt transition-colors">进阶示例</a>
+        <a href="#dependencies" class="px-3 py-2 text-txt-dim hover:text-txt transition-colors">依赖项</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="https://typer.tiangolo.com" target="_blank" rel="noopener" class="hidden sm:flex items-center gap-1.5 text-sm text-txt-dim hover:text-amber transition-colors">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg>
+          官方文档
+        </a>
+        <a href="https://github.com/fastapi/typer" target="_blank" rel="noopener" class="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ink-3 border border-line hover:border-line-2 text-sm font-medium transition-colors">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.37.5 0 5.78 0 12.29c0 5.21 3.44 9.63 8.21 11.19.6.11.82-.25.82-.56v-2.02c-3.34.71-4.04-1.58-4.04-1.58-.55-1.37-1.34-1.74-1.34-1.74-1.09-.73.08-.72.08-.72 1.21.08 1.84 1.22 1.84 1.22 1.07 1.8 2.81 1.28 3.5.98.11-.76.42-1.28.76-1.57-2.67-.3-5.47-1.31-5.47-5.84 0-1.29.47-2.35 1.24-3.18-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.21a11.6 11.6 0 0 1 6 0c2.29-1.53 3.3-1.21 3.3-1.21.66 1.65.24 2.87.12 3.17.77.83 1.24 1.89 1.24 3.18 0 4.54-2.81 5.54-5.49 5.83.43.37.81 1.1.81 2.22v3.29c0 .31.22.68.83.56A12.01 12.01 0 0 0 24 12.29C24 5.78 18.63.5 12 .5z"/></svg>
+          <span class="hidden sm:inline">GitHub</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ============ HERO ============ -->
+  <section id="top" class="relative pt-32 pb-20 lg:pt-40 lg:pb-28 px-6 lg:px-10 z-10">
+    <div class="max-w-[1400px] mx-auto">
+      <div class="grid lg:grid-cols-12 gap-10 lg:gap-16 items-center">
+
+        <!-- Left: Text -->
+        <div class="lg:col-span-6 reveal">
+          <div class="flex items-center gap-3 mb-6">
+            <span class="sec-label">CLI Library for Python</span>
+          </div>
+          <h1 class="font-display font-bold text-5xl sm:text-6xl lg:text-[5.2rem] leading-[0.95] tracking-tighter mb-6">
+            构建出色的<br>
+            <span class="hl-amber">命令行程序</span>
+          </h1>
+          <p class="text-lg lg:text-xl text-txt-dim leading-relaxed max-w-[52ch] mb-8">
+            Typer 是一个用于构建 CLI 的 Python 库，让用户<span class="text-txt">喜欢使用</span>、开发者<span class="text-txt">喜欢创建</span>。基于 Python 类型注解，编写轻松，到处补全。
+          </p>
+
+          <div class="flex flex-wrap items-center gap-4 mb-10">
+            <a href="#install" class="px-6 py-3 rounded-xl bg-amber hover:bg-amber-br text-ink font-semibold text-sm transition-colors flex items-center gap-2">
+              快速开始
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+            </a>
+            <a href="#features" class="px-6 py-3 rounded-xl border border-line hover:border-line-2 text-sm font-medium transition-colors">
+              查看特性
+            </a>
+          </div>
+
+          <!-- Mini stats -->
+          <div class="flex flex-wrap gap-x-8 gap-y-3 text-sm">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald"></span>
+              <span class="text-txt-dim">基于 Python 类型注解</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-amber"></span>
+              <span class="text-txt-dim">自动补全 · 全 Shell 支持</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full hl-indigo" style="background: var(--indigo-soft);"></span>
+              <span class="text-txt-dim">命令行界的 FastAPI</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Animated Terminal -->
+        <div class="lg:col-span-6 reveal" style="transition-delay: 0.15s;">
+          <div class="relative">
+            <!-- Coordinate label -->
+            <div class="absolute -top-7 right-0 font-mono text-[10px] text-txt-faint tracking-widest">
+              [ ~/project ] — zsh
+            </div>
+
+            <div class="term-window">
+              <div class="term-header">
+                <div class="term-dot" style="background: #ff5f57;"></div>
+                <div class="term-dot" style="background: #febc2e;"></div>
+                <div class="term-dot" style="background: #28c840;"></div>
+                <div class="ml-3 text-xs font-mono text-txt-faint">main.py — typer</div>
+                <div class="ml-auto text-xs font-mono text-txt-faint">80×24</div>
+              </div>
+              <div class="term-body" id="heroTerm">
+                <!-- Filled by JS -->
+              </div>
+            </div>
+
+            <!-- Floating badge -->
+            <div class="absolute -bottom-4 -left-4 bg-ink-3 border border-line rounded-lg px-4 py-2.5 shadow-xl hidden sm:block">
+              <div class="flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span class="text-sm font-mono text-emerald">pip install typer</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FASTAPI STATEMENT ============ -->
+  <section class="relative py-16 px-6 lg:px-10 z-10">
+    <div class="max-w-[1400px] mx-auto">
+      <div class="reveal border-t border-b border-line py-12 lg:py-16">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center gap-6 lg:gap-12">
+          <div class="lg:w-1/3">
+            <span class="sec-label">定位</span>
+          </div>
+          <div class="lg:w-2/3">
+            <p class="font-display text-2xl lg:text-3xl leading-snug tracking-tight">
+              Typer 是 <a href="https://fastapi.tiangolo.com" target="_blank" rel="noopener" class="hl-emerald underline decoration-emerald/30 underline-offset-4 hover:decoration-emerald transition-colors">FastAPI</a> 的小兄弟，<br class="hidden sm:block">
+              它是<span class="hl-amber">命令行程序界</span>的 FastAPI。
+            </p>
+            <p class="mt-4 text-txt-dim text-base lg:text-lg max-w-[60ch]">
+              同样的设计哲学——类型注解驱动、自动文档、极简 API——从 Web API 延伸到了终端命令行。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FEATURES BENTO ============ -->
+  <section id="features" class="relative py-20 lg:py-28 px-6 lg:px-10 z-10">
+    <div class="max-w-[1400px] mx-auto">
+      <div class="reveal mb-14">
+        <span class="sec-label mb-4">主要特性</span>
+        <h2 class="font-display font-bold text-4xl lg:text-5xl tracking-tighter mt-4 mb-4">
+          为什么选择 <span class="hl-amber">Typer</span>
+        </h2>
+        <p class="text-txt-dim text-lg max-w-[55ch]">
+          六大核心特性，让 CLI 开发从繁琐走向愉悦。
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Feature 1: Intuitive -->
+        <div class="bento-card reveal lg:row-span-2" data-spotlight>
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-11 h-11 rounded-xl bg-amber/10 border border-amber/20 flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </div>
+            <h3 class="font-display font-semibold text-xl">编写直观</h3>
+          </div>
+          <p class="text-txt-dim leading-relaxed mb-6">
+            出色的编辑器支持，到处都有补全。减少调试时间，专为易用、易学而设计。少花时间阅读文档。
+          </p>
+          <div class="code-block">
+            <div class="code-body text-[12.5px]">
+              <span class="py-com"># 输入 name，自动推断为必填参数</span><br>
+              <span class="py-kw">def</span> <span class="py-func">main</span>(<span class="py-var">name</span>: <span class="py-builtin">str</span>):<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="py-func">print</span>(<span class="py-str">f"Hello {name}"</span>)
+            </div>
+          </div>
+        </div>
+
+        <!-- Feature 2: Easy to use -->
+        <div class="bento-card reveal" data-spotlight>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-emerald/10 border border-emerald/20 flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            </div>
+            <h3 class="font-display font-semibold text-lg">使用方便</h3>
+          </div>
+          <p class="text-txt-dim text-sm leading-relaxed">
+            对最终用户来说非常易用。自动生成帮助信息，为所有 Shell 提供自动补全。
+          </p>
+        </div>
+
+        <!-- Feature 3: Concise -->
+        <div="bento-card reveal" data-spotlight>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-rose/10 border border-rose/20 flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fb7185" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            </div>
+            <h3 class="font-display font-semibold text-lg">精简</h3>
+          </div>
+          <p class="text-txt-dim text-sm leading-relaxed">
+            最大限度减少代码重复。每个参数声明即可获得多项功能，更少 Bug。
+          </p>
+        </div>
+
+        <!-- Feature 4: Simple start -->
+        <div class="bento-card reveal" data-spotlight>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg hl-indigo/10 border border-indigo-soft/20 flex items-center justify-center" style="background: rgba(129,140,248,0.1); border-color: rgba(129,140,248,0.2);">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+            </div>
+            <h3 class="font-display font-semibold text-lg">起步简单</h3>
+          </div>
+          <p class="text-txt-dim text-sm leading-relaxed mb-3">
+            最简单的示例只需增加 2 行代码：
+          </p>
+          <p class="font-mono text-sm">
+            <span class="hl-amber">1</span> 个 import <span class="text-txt-faint">+</span> <span class="hl-amber">1</span> 次函数调用
+          </p>
+        </div>
+
+        <!-- Feature 5: Scalable -->
+        <div class="bento-card reveal" data-spotlight>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-amber/10 border border-amber/20 flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg>
+            </div>
+            <h3 class="font-display font-semibold text-lg">规模可扩展</h3>
+          </div>
+          <p class="text-txt-dim text-sm leading-relaxed">
+            任意扩展复杂度，创建复杂的命令树和子命令组，支持选项和参数。
+          </p>
+        </div>
+
+        <!-- Feature 6: Run scripts -->
+        <div class="bento-card reveal lg:col-span-2" data-spotlight>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-emerald/10 border border-emerald/20 flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            </div>
+            <h3 class="font-display font-semibold text-lg">运行脚本</h3>
+          </div>
+          <p class="text-txt-dim text-sm leading-relaxed mb-4">
+            内置 <code class="font-mono text-emerald bg-emerald/5 px-1.5 py-0.5 rounded">typer</code> 命令，可用于运行脚本，自动将其转换成 CLI 程序——即便脚本内部并未使用 Typer。
+          </p>
+          <div class="flex items-center gap-2 font-mono text-xs text-txt-faint">
+            <span class="term-prompt">$</span>
+            <span class="text-txt-dim">typer main.py run Camila</span>
+            <span class="text-emerald">→ Hello Camila</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ INSTALL ============ -->
+  <section id="install" class="relative py-20 lg:py-28 px-6 lg:px-10 z-10">
+    <div class="max-w-[1400px] mx-auto">
+      <div class="grid lg:grid-cols-12 gap-10 lg:gap-16">
+        <div class="lg:col-span-5 reveal">
+          <span class="sec-label mb-4">安装</span>
+          <h2 class="font-display font-bold text-4xl lg:text-5xl tracking-tighter mt-4 mb-6">
+            三秒安装，<br>即刻开始
+          </h2>
+          <p class="text-txt-dim text-lg leading-relaxed mb-6">
+            创建并激活一个虚拟环境，然后安装 Typer。仅依赖少量小型库。
+          </p>
+          <div class="flex items-center gap-2 text-sm text-txt-dim">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+            <span>约 5 秒完成安装</span>
+          </div>
+        </div>
+
+        <div class="lg:col-span-7 reveal" style="transition-delay: 0.1s;">
+          <div class="term-window">
+            <div class="term-header">
+              <div class="term-dot" style="background: #ff5f57;"></div>
+              <div class="term-dot" style="background: #febc2e;"></div>
+              <div class="term-dot" style="background: #28c840;"></div>
+              <div class="ml-3 text-xs font-mono text-txt-faint">bash</div>
+            </div>
+            <div class="term-body">
+              <div><span class="term-prompt">$</span> <span class="term-cmd">pip install typer</span></div>
+              <div class="term-dim">Collecting typer</div>
+              <div class="term-dim">  Downloading typer-0.16.x-py3-none-any.whl</div>
+              <div class="term-dim">Collecting rich</div>
+              <div class="term-dim">  Downloading rich-13.x-py3-none-any.whl</div>
+              <div class="term-dim">Collecting shellingham</div>
+              <div class="term-dim">  Downloading shellingham-1.5.x-py2.py3-none-any.whl</div>
+              <div class="term-success">---> 100%</div>
+              <div class="term-success">Successfully installed typer rich shellingham</div>
+              <div class="mt-2"><span class="term-prompt">$</span> <span class="term-cmd">python -c "import typer; print(typer.__version__)"</span></div>
+              <div class="term-amber">0.16.x</div>
+              <div class="mt-2"><span class="term-comment"># 安装完成，开始构建你的 CLI 🎉</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ QUICK START ============ -->
+  <section id="quickstart" class="relative py-20 lg:py-28 px-6 lg:px-10 z-10">
+    <div class="max-w-[1400px] mx-auto">
+      <div class="reveal mb-14">
+        <span class="sec-label mb-4">快速开始</span>
+        <h2 class="font-display font-bold text-4xl lg:text-5xl tracking-tighter mt-4 mb-4">
+          从最简示例到 <span class="hl-amber">你的第一个 CLI</span>
+        </h2>
+        <p class="text-txt-dim text-lg max-w-[55ch]">
+          只需标准的 Python 类型注解，Typer 会处理剩下的一切。
+        </p>
+      </div>
+
+      <!-- Step 1: Minimal example -->
+      <div class="grid lg:grid-cols-2 gap-6 mb-10">
+        <div class="reveal">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="font-mono text-xs text-amber tracking-widest">01</span>
+            <h3 class="font-display font-semibold text-xl">最简示例</h3>
+          </div>
+          <p class="text-txt-dim text-sm mb-4">
+            创建 <code class="font-mono text-amber bg-amber/5 px-1.5 py-0.5 rounded text-[13px]">main.py</code>，内容如下。这个脚本内部甚至没有使用 Typer。
+          </p>
+          <div class="code-block">
+            <div class="term-header" style="padding: 8px 16px; background: #111214;">
+              <div class="term-dot" style="background: #ff5f57; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #febc2e; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #28c840; width:10px;height:10px;"></div>
+              <div class="ml-2 text-xs font-mono text-txt-faint">main.py</div>
+            </div>
+            <div class="code-body text-[13px]">
+              <span class="py-kw">def</span> <span class="py-func">main</span>(<span class="py-var">name</span>: <span class="py-builtin">str</span>):<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="py-func">print</span>(<span class="py-str">f"Hello {name}"</span>)
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal" style="transition-delay: 0.1s;">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="font-mono text-xs text-emerald tracking-widest">02</span>
+            <h3 class="font-display font-semibold text-xl">用 typer 命令运行</h3>
+          </div>
+          <p class="text-txt-dim text-sm mb-4">
+            你可以用 <code class="font-mono text-emerald bg-emerald/5 px-1.5 py-0.5 rounded text-[13px]">typer</code> 命令把它当作 CLI 程序来运行。
+          </p>
+          <div class="term-window">
+            <div class="term-header" style="padding: 8px 16px;">
+              <div class="term-dot" style="background: #ff5f57; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #febc2e; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #28c840; width:10px;height:10px;"></div>
+              <div class="ml-2 text-xs font-mono text-txt-faint">terminal</div>
+            </div>
+            <div class="term-body text-[12.5px]">
+              <div><span class="term-comment">// 运行你的程序</span></div>
+              <div><span class="term-prompt">$</span> <span class="term-cmd">typer main.py run</span></div>
+              <div class="term-error">Missing argument 'name'.</div>
+              <div class="mt-1"><span class="term-comment">// 自动获得 --help 帮助信息</span></div>
+              <div><span class="term-prompt">$</span> <span class="term-cmd">typer main.py run --help</span></div>
+              <div class="term-dim">Usage: typer [PATH_OR_MODULE] run [OPTIONS] {name}</div>
+              <div class="term-box">╭─ Arguments ──────────────────────╮</div>
+              <div class="term-box">│ *  name  <str>  [required]       │</div>
+              <div class="term-box">╰──────────────────────────────────╯</div>
+              <div class="mt-1"><span class="term-comment">// 传入 name 参数</span></div>
+              <div><span class="term-prompt">$</span> <span class="term-cmd">typer main.py run Camila</span></div>
+              <div class="term-success">Hello Camila</div>
+              <div class="mt-1"><span class="term-comment">// 成功运行！🎉</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Use Typer in code -->
+      <div class="grid lg:grid-cols-2 gap-6">
+        <div class="reveal">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="font-mono text-xs text-amber tracking-widest">03</span>
+            <h3 class="font-display font-semibold text-xl">在你的代码中使用 Typer</h3>
+          </div>
+          <p class="text-txt-dim text-sm mb-4">
+            将 <code class="font-mono text-amber bg-amber/5 px-1.5 py-0.5 rounded text-[13px]">main.py</code> 更新为以下内容，直接用 Python 运行。
+          </p>
+          <div class="code-block">
+            <div class="term-header" style="padding: 8px 16px; background: #111214;">
+              <div class="term-dot" style="background: #ff5f57; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #febc2e; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #28c840; width:10px;height:10px;"></div>
+              <div class="ml-2 text-xs font-mono text-txt-faint">main.py</div>
+            </div>
+            <div class="code-body text-[13px]">
+              <span class="py-kw">import</span> typer<br><br>
+              <span class="py-kw">def</span> <span class="py-func">main</span>(<span class="py-var">name</span>: <span class="py-builtin">str</span>):<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="py-func">print</span>(<span class="py-str">f"Hello {name}"</span>)<br><br>
+              <span class="py-kw">if</span> <span class="py-var">__name__</span> == <span class="py-str">"__main__"</span>:<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;typer.<span class="py-func">run</span>(main)
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal" style="transition-delay: 0.1s;">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="font-mono text-xs text-emerald tracking-widest">04</span>
+            <h3 class="font-display font-semibold text-xl">直接用 Python 运行</h3>
+          </div>
+          <p class="text-txt-dim text-sm mb-4">
+            现在你可以直接运行它，同样获得帮助信息和类型检查。
+          </p>
+          <div class="term-window">
+            <div class="term-header" style="padding: 8px 16px;">
+              <div class="term-dot" style="background: #ff5f57; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #febc2e; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #28c840; width:10px;height:10px;"></div>
+              <div class="ml-2 text-xs font-mono text-txt-faint">terminal</div>
+            </div>
+            <div class="term-body text-[12.5px]">
+              <div><span class="term-prompt">$</span> <span class="term-cmd">python main.py</span></div>
+              <div class="term-error">Missing argument 'name'.</div>
+              <div class="mt-1"><span class="term-prompt">$</span> <span class="term-cmd">python main.py --help</span></div>
+              <div class="term-dim">Usage: main.py [OPTIONS] {name}</div>
+              <div class="term-box">╭─ Arguments ──────────────────────╮</div>
+              <div class="term-box">│ *  name  <str>  [required]       │</div>
+              <div class="term-box">╰──────────────────────────────────╯</div>
+              <div class="mt-1"><span class="term-prompt">$</span> <span class="term-cmd">python main.py Camila</span></div>
+              <div class="term-success">Hello Camila</div>
+              <div class="mt-1"><span class="term-comment">// 成功运行！🎉</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ADVANCED EXAMPLE ============ -->
+  <section id="advanced" class="relative py-20 lg:py-28 px-6 lg:px-10 z-10">
+    <div class="max-w-[1400px] mx-auto">
+      <div class="reveal mb-14">
+        <span class="sec-label mb-4">进阶示例</span>
+        <h2 class="font-display font-bold text-4xl lg:text-5xl tracking-tighter mt-4 mb-4">
+          多子命令与 <span class="hl-emerald">自动补全</span>
+        </h2>
+        <p class="text-txt-dim text-lg max-w-[55ch]">
+          创建一个 Typer 应用，添加两个子命令，自动获得 --help 和 Shell 补全。
+        </p>
+      </div>
+
+      <div class="grid lg:grid-cols-2 gap-6 mb-8">
+        <!-- Code -->
+        <div class="reveal">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="font-mono text-xs text-amber tracking-widest">CODE</span>
+            <h3 class="font-display font-semibold text-xl">包含两个子命令</h3>
+          </div>
+          <div class="code-block">
+            <div class="term-header" style="padding: 8px 16px; background: #111214;">
+              <div class="term-dot" style="background: #ff5f57; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #febc2e; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #28c840; width:10px;height:10px;"></div>
+              <div class="ml-2 text-xs font-mono text-txt-faint">main.py</div>
+            </div>
+            <div class="code-body text-[13px]">
+              <span class="py-kw">import</span> typer<br><br>
+              <span class="py-highlight">app = typer.Typer()</span><br><br>
+              <span class="py-highlight"><span class="py-dec">@app.command()</span></span><br>
+              <span class="py-kw">def</span> <span class="py-func">hello</span>(<span class="py-var">name</span>: <span class="py-builtin">str</span>):<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="py-func">print</span>(<span class="py-str">f"Hello {name}"</span>)<br><br>
+              <span class="py-highlight"><span class="py-dec">@app.command()</span></span><br>
+              <span class="py-kw">def</span> <span class="py-func">goodbye</span>(<span class="py-var">name</span>: <span class="py-builtin">str</span>, <span class="py-var">formal</span>: <span class="py-builtin">bool</span> = <span class="py-num">False</span>):<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="py-kw">if</span> formal:<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="py-func">print</span>(<span class="py-str">f"Goodbye Ms. {name}. Have a good day."</span>)<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="py-kw">else</span>:<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="py-func">print</span>(<span class="py-str">f"Bye {name}!"</span>)<br><br>
+              <span class="py-highlight"><span class="py-kw">if</span> <span class="py-var">__name__</span> == <span class="py-str">"__main__"</span>:</span><br>
+              <span class="py-highlight">&nbsp;&nbsp;&nbsp;&nbsp;app()</span>
+            </div>
+          </div>
+          <p class="text-txt-dim text-sm mt-4">
+            显式创建 <code class="font-mono text-amber bg-amber/5 px-1.5 py-0.5 rounded text-[13px]">typer.Typer</code> 应用，用 <code class="font-mono text-amber bg-amber/5 px-1.5 py-0.5 rounded text-[13px]">@app.command()</code> 添加子命令。
+          </p>
+        </div>
+
+        <!-- Terminal outputs -->
+        <div class="reveal" style="transition-delay: 0.1s;">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="font-mono text-xs text-emerald tracking-widest">RUN</span>
+            <h3 class="font-display font-semibold text-xl">运行与帮助信息</h3>
+          </div>
+          <div class="term-window mb-4">
+            <div class="term-header" style="padding: 8px 16px;">
+              <div class="term-dot" style="background: #ff5f57; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #febc2e; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #28c840; width:10px;height:10px;"></div>
+              <div class="ml-2 text-xs font-mono text-txt-faint">terminal</div>
+            </div>
+            <div class="term-body text-[12px]">
+              <div><span class="term-prompt">$</span> <span class="term-cmd">python main.py --help</span></div>
+              <div class="term-dim">Usage: main.py [OPTIONS] COMMAND [ARGS]...</div>
+              <div class="term-box">╭─ Commands ───────────────────────╮</div>
+              <div class="term-box">│ hello                            │</div>
+              <div class="term-box">│ goodbye                          │</div>
+              <div class="term-box">╰──────────────────────────────────╯</div>
+              <div class="mt-1"><span class="term-comment">// 免费获得 ✨ 自动补全 ✨</span></div>
+            </div>
+          </div>
+
+          <div class="term-window mb-4">
+            <div class="term-header" style="padding: 8px 16px;">
+              <div class="term-dot" style="background: #ff5f57; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #febc2e; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #28c840; width:10px;height:10px;"></div>
+              <div class="ml-2 text-xs font-mono text-txt-faint">goodbye --help</div>
+            </div>
+            <div class="term-body text-[12px]">
+              <div class="term-dim">Usage: main.py goodbye [OPTIONS] {name}</div>
+              <div class="term-box">╭─ Options ────────────────────────╮</div>
+              <div class="term-box">│ --formal  --no-formal           │</div>
+              <div class="term-box">│   [default: no-formal]           │</div>
+              <div class="term-box">╰──────────────────────────────────╯</div>
+              <div class="mt-1"><span class="term-comment">// bool 自动生成 --formal 和 --no-formal 🎉</span></div>
+            </div>
+          </div>
+
+          <div class="term-window">
+            <div class="term-header" style="padding: 8px 16px;">
+              <div class="term-dot" style="background: #ff5f57; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #febc2e; width:10px;height:10px;"></div>
+              <div class="term-dot" style="background: #28c840; width:10px;height:10px;"></div>
+              <div class="ml-2 text-xs font-mono text-txt-faint">terminal</div>
+            </div>
+            <div class="term-body text-[12px]">
+              <div><span class="term-prompt">$</span> <span class="term-cmd">python main.py hello Camila</span></div>
+              <div class="term-success">Hello Camila</div>
+              <div class="mt-1"><span class="term-prompt">$</span> <span class="term-cmd">python main.py goodbye Camila</span></div>
+              <div class="term-success">Bye Camila!</div>
+              <div class="mt-1"><span class="term-prompt">$</span> <span class="term-cmd">python main.py goodbye --formal Camila</span></div>
+              <div class="term-success">Goodbye Ms. Camila. Have a good day.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Note -->
+      <div class="reveal flex items-start gap-3 p-5 rounded-xl bg-amber/5 border border-amber/15 max-w-[800px]">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" class="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <p class="text-sm text-txt-dim leading-relaxed">
+          <span class="text-txt font-medium">注意：</span>如果你的程序只有一个命令，默认情况下命令名在用法中会被<strong class="text-txt">省略</strong>：<code class="font-mono text-amber text-[13px]">python main.py Camila</code>。但当存在多个命令时，你必须<strong class="text-txt">显式地写上命令名</strong>：<code class="font-mono text-amber text-[13px]">python main.py hello Camila</code>。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SUMMARY ============ -->
+  <section class="relative py-20 lg:py-28 px-6 lg:px-10 z-10">
+    <div class="max-w-[1400px] mx-auto">
+      <div class="reveal">
+        <span class="sec-label mb-4">小结</span>
+        <h2 class="font-display font-bold text-4xl lg:text-5xl tracking-tighter mt-4 mb-12 max-w-[20ch]">
+          只需标准的 <span class="hl-amber">Python</span>
+        </h2>
+      </div>
+
+      <div class="grid lg:grid-cols-12 gap-10 items-start">
+        <div class="lg:col-span-7 reveal">
+          <p class="text-lg lg:text-xl text-txt leading-relaxed mb-8">
+            你只需<span class="hl-amber">声明一次</span>参数的类型——CLI 参数和 CLI 选项——将其作为函数参数即可。使用的是标准的现代 Python 类型，不需要学习新的语法、某个特定库的方法或类。
+          </p>
+
+          <div class="grid grid-cols-2 gap-4 mt-8">
+            <div class="p-5 rounded-xl bg-ink-2 border border-line">
+              <div class="font-mono text-sm text-txt-dim mb-2">整数类型</div>
+              <code class="font-mono text-amber text-base">total: int</code>
+            </div>
+            <div class="p-5 rounded-xl bg-ink-2 border border-line">
+              <div class="font-mono text-sm text-txt-dim mb-2">布尔标志</div>
+              <code class="font-mono text-amber text-base">force: bool</code>
+            </div>
+            <div class="p-5 rounded-xl bg-ink-2 border border-line">
+              <div class="font-mono text-sm text-txt-dim mb-2">文件路径</div>
+              <code class="font-mono text-amber text-base">path: Path</code>
+            </div>
+            <div class="p-5 rounded-xl bg-ink-2 border border-line">
+              <div class="font-mono text-sm text-txt-dim mb-2">枚举选项</div>
+              <code class="font-mono text-amber text-base">mode: Enum</code>
+            </div>
+          </div>
+
+          <p class="text-txt-dim text-base mt-6">
+            同理也适用于文件、路径、枚举（选项）等，还提供了创建子命令组、添加元数据、额外校验等工具。
+          </p>
+        </div>
+
+        <div class="lg:col-span-5 reveal" style="transition-delay: 0.1s;">
+          <div class="space-y-4">
+            <div class="p-6 rounded-2xl bg-gradient-to-br from-amber/8 to-transparent border border-amber/15">
+              <div class="flex items-center gap-2 mb-3">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>
+                <h4 class="font-display font-semibold text-amber-br">你将获得</h4>
+              </div>
+              <p class="text-sm text-txt leading-relaxed">
+                出色的编辑器支持，包括无处不在的<span class="text-amber-br">补全</span>和<span class="text-amber-br">类型检查</span>。
+              </p>
+            </div>
+
+            <div class="p-6 rounded-2xl bg-gradient-to-br from-emerald/8 to-transparent border border-emerald/15">
+              <div class="flex items-center gap-2 mb-3">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                <h4 class="font-display font-semibold text-emerald">你的用户将获得</h4>
+              </div>
+              <p class="text-sm text-txt leading-relaxed">
+                安装你的包或使用 <code class="font-mono text-emerald text-[13px]">typer</code> 命令时，终端（Bash、Zsh、Fish、PowerShell）中的自动 <code class="font-mono text-emerald text-[13px]">--help</code> 帮助信息和<span class="text-emerald">自动补全</span>。
+              </p>
+            </div>
+          </div>
+
+          <a href="https://typer.tiangolo.com/tutorial/" target="_blank" rel="noopener" class="mt-4 inline-flex items-center gap-2 text-sm text-txt-dim hover:text-amber transition-colors">
+            查看完整教程 — 用户指南
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M7 7h10v10"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DEPENDENCIES ============ -->
+  <section id="dependencies" class="relative py-20 lg:py-28 px-6 lg:px-10 z-10">
+    <div class="max-w-[1400px] mx-auto">
+      <div class="reveal mb-12">
+        <span class="sec-label mb-4">依赖项</span>
+        <h2 class="font-display font-bold text-4xl lg:text-5xl tracking-tighter mt-4 mb-4">
+          轻量依赖，<span class="hl-amber">精简至上</span>
+        </h2>
+        <p class="text-txt-dim text-lg max-w-[55ch]">
+          Typer 仅需要少量依赖（大多数都很小），保持你的项目干净。
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4 mb-10">
+        <div class="reveal p-6 rounded-2xl bg-ink-2 border border-line hover:border-line-2 transition-colors">
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-amber/10 border border-amber/20 flex items-center justify-center font-mono font-bold text-amber text-sm">rich</div>
+              <div>
+                <h4 class="font-display font-semibold">Rich</h4>
+                <p class="text-xs text-txt-faint font-mono">rich.readthedocs.io</p>
+              </div>
+            </div>
+          </div>
+          <p class="text-sm text-txt-dim leading-relaxed">
+            用于自动显示格式美观的错误信息。
+          </p>
+        </div>
+
+        <div class="reveal p-6 rounded-2xl bg-ink-2 border border-line hover:border-line-2 transition-colors">
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-emerald/10 border border-emerald/20 flex items-center justify-center font-mono font-bold text-emerald text-xs">shell</div>
+              <div>
+                <h4 class="font-display font-semibold">Shellingham</h4>
+                <p class="text-xs text-txt-faint font-mono">github.com/sarugaku/shellingham</p>
+              </div>
+            </div>
+          </div>
+          <p class="text-sm text-txt-dim leading-relaxed">
+            用于在安装补全时自动检测当前 Shell。
+          </p>
+        </div>
+
+        <div class="reveal p-6 rounded-2xl bg-ink-2 border border-line hover:border-line-2 transition-colors">
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg hl-indigo/10 border border-indigo-soft/20 flex items-center justify-center font-mono font-bold text-sm" style="background: rgba(129,140,248,0.1); border-color: rgba(129,140,248,0.2); color: #818cf8;">doc</div>
+              <div>
+                <h4 class="font-display font-semibold">Annotated Doc</h4>
+                <p class="text-xs text-txt-faint font-mono">github.com/fastapi/annotated-doc</p>
+              </div>
+            </div>
+          </div>
+          <p class="text-sm text-txt-dim leading-relaxed">
+            用于从 Python 类型注解生成文档。
+          </p>
+        </div>
+
+        <div class="reveal p-6 rounded-2xl bg-ink-2 border border-line hover:border-line-2 transition-colors">
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-rose/10 border border-rose/20 flex items-center justify-center font-mono font-bold text-rose text-xs">win</div>
+              <div>
+                <h4 class="font-display font-semibold">Colorama <span class="text-xs text-txt-faint font-normal">（仅 Windows）</span></h4>
+                <p class="text-xs text-txt-faint font-mono">github.com/tartley/colorama</p>
+              </div>
+            </div>
+          </div>
+          <p class="text-sm text-txt-dim leading-relaxed">
+            用于在 Windows 上生成彩色终端文本。
+          </p>
+        </div>
+      </div>
+
+      <!-- Click note -->
+      <div class="reveal grid md:grid-cols-2 gap-4">
+        <div class="p-6 rounded-2xl bg-ink-2 border border-line">
+          <div class="flex items-center gap-2 mb-3">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            <h4 class="font-display font-semibold text-sm">关于 Click</h4>
+          </div>
+          <p class="text-sm text-txt-dim leading-relaxed">
+            Typer 过去依赖 Click。自 0.26.0 起，Typer 已将 Click <strong class="text-txt">内置</strong>（vendored），统一了交互方式，便于未来维护。部分 Click 功能未来将不再可用。
+          </p>
+        </div>
+
+        <div class="p-6 rounded-2xl bg-ink-2 border border-line">
+          <div class="flex items-center gap-2 mb-3">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fb7185" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            <h4 class="font-display font-semibold text-sm">关于 typer-slim</h4>
+          </div>
+          <p class="text-sm text-txt-dim leading-relaxed">
+            曾经有一个精简版 <code class="font-mono text-rose text-[13px]">typer-slim</code>。自 0.22.0 起已停止支持，现在只是安装完整的 Typer。如需全局禁用 Rich，设置 <code class="font-mono text-rose text-[13px]">TYPER_USE_RICH=False</code>。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CTA + LICENSE ============ -->
+  <section class="relative py-20 lg:py-28 px-6 lg:px-10 z-10">
+    <div class="max-w-[1400px] mx-auto">
+      <div class="reveal relative overflow-hidden rounded-3xl border border-line bg-ink-2 p-10 lg:p-16">
+        <!-- Decorative grid -->
+        <div class="absolute inset-0 grid-bg opacity-30"></div>
+        <!-- Glow -->
+        <div class="absolute -top-1/2 -right-1/4 w-[600px] h-[600px] rounded-full" style="background: radial-gradient(circle, rgba(245,158,11,0.08), transparent 60%);"></div>
+
+        <div class="relative z-10">
+          <div class="grid lg:grid-cols-2 gap-10 items-center">
+            <div>
+              <h2 class="font-display font-bold text-4xl lg:text-5xl tracking-tighter mb-4">
+                开始构建你的<br>
+                <span class="hl-amber">命令行程序</span>
+              </h2>
+              <p class="text-txt-dim text-lg max-w-[45ch] mb-8">
+                只需一行安装，两行代码起步。标准 Python 类型注解，自动补全，自动帮助信息。
+              </p>
+              <div class="flex flex-wrap items-center gap-4">
+                <a href="https://typer.tiangolo.com/tutorial/" target="_blank" rel="noopener" class="px-6 py-3 rounded-xl bg-amber hover:bg-amber-br text-ink font-semibold text-sm transition-colors flex items-center gap-2">
+                  阅读完整教程
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+                </a>
+                <a href="https://github.com/fastapi/typer" target="_blank" rel="noopener" class="px-6 py-3 rounded-xl border border-line hover:border-line-2 text-sm font-medium transition-colors">
+                  GitHub 源码
+                </a>
+              </div>
+            </div>
+
+            <div class="lg:justify-self-end w-full lg:max-w-[400px]">
+              <div class="term-window">
+                <div class="term-header">
+                  <div class="term-dot" style="background: #ff5f57;"></div>
+                  <div class="term-dot" style="background: #febc2e;"></div>
+                  <div class="term-dot" style="background: #28c840;"></div>
+                  <div class="ml-3 text-xs font-mono text-txt-faint">install.sh</div>
+                </div>
+                <div class="term-body">
+                  <div><span class="term-prompt">$</span> <span class="term-cmd">pip install typer</span></div>
+                  <div class="term-success">Successfully installed typer</div>
+                  <div class="mt-2"><span class="term-prompt">$</span> <span class="term-cmd">python main.py --help</span></div>
+                  <div class="term-dim">Usage: main.py [OPTIONS] COMMAND...</div>
+                  <div class="mt-2 flex items-center gap-1">
+                    <span class="term-comment"># 就这么简单</span>
+                    <span class="cursor-blink"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- License -->
+          <div class="mt-12 pt-8 border-t border-line flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-3 text-sm text-txt-dim">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V7l-10-5z"/></svg>
+              <span>本项目基于 <strong class="text-txt">MIT 许可证</strong> 授权</span>
+            </div>
+            <div class="flex items-center gap-4 text-sm">
+              <a href="https://typer.tiangolo.com" target="_blank" rel="noopener" class="text-txt-dim hover:text-amber transition-colors">官方文档</a>
+              <span class="text-txt-faint">·</span>
+              <a href="https://github.com/fastapi/typer" target="_blank" rel="noopener" class="text-txt-dim hover:text-amber transition-colors">源代码</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="relative py-12 px-6 lg:px-10 z-10 border-t border-line">
+    <div class="max-w-[1400px] mx-auto">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-amber flex items-center justify-center font-mono font-bold text-ink text-sm">T</div>
+          <span class="font-display font-semibold tracking-tight">Typer</span>
+          <span class="text-sm text-txt-faint">— 构建出色的命令行程序</span>
+        </div>
+        <div class="flex items-center gap-6 text-sm text-txt-dim">
+          <a href="https://typer.tiangolo.com" target="_blank" rel="noopener" class="hover:text-amber transition-colors">文档</a>
+          <a href="https://github.com/fastapi/typer" target="_blank" rel="noopener" class="hover:text-amber transition-colors">GitHub</a>
+          <a href="https://fastapi.tiangolo.com" target="_blank" rel="noopener" class="hover:text-amber transition-colors">FastAPI</a>
+        </div>
+      </div>
+      <div class="mt-8 text-center text-xs text-txt-faint font-mono">
+        MIT License · Based on Python type annotations · Built with HTML + Tailwind CSS
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // --- Scroll Reveal ---
+    const revealEls = document.querySelectorAll('.reveal');
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('in');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+    revealEls.forEach(el => io.observe(el));
+
+    // --- Spotlight on bento cards ---
+    document.querySelectorAll('[data-spotlight]').forEach(card => {
+      card.addEventListener('mousemove', e => {
+        const rect = card.getBoundingClientRect();
+        card.style.setProperty('--mx', `${((e.clientX - rect.left) / rect.width) * 100}%`);
+        card.style.setProperty('--my', `${((e.clientY - rect.top) / rect.height) * 100}%`);
+      });
+    });
+
+    // --- Hero Terminal Typing Animation ---
+    const heroLines = [
+      { type: 'comment', text: '// 创建你的第一个 Typer 程序' },
+      { type: 'cmd', text: '$ cat main.py' },
+      { type: 'code', text: 'import typer' },
+      { type: 'code', text: '' },
+      { type: 'code', text: 'def main(name: str):' },
+      { type: 'code', text: '    print(f"Hello {name}")' },
+      { type: 'code', text: '' },
+      { type: 'code', text: 'if __name__ == "__main__":' },
+      { type: 'code', text: '    typer.run(main)' },
+      { type: 'blank', text: '' },
+      { type: 'cmd', text: '$ python main.py Camila' },
+      { type: 'success', text: 'Hello Camila' },
+      { type: 'comment', text: '// 自动获得 --help 和补全 🎉' },
+    ];
+
+    const heroTerm = document.getElementById('heroTerm');
+    let heroIdx = 0;
+    let heroCharIdx = 0;
+    let currentLineDiv = null;
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function getLineHTML(line) {
+      const escapeHTML = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      switch(line.type) {
+        case 'comment':
+          return `<span class="term-comment">${escapeHTML(line.text)}</span>`;
+        case 'cmd':
+          const parts = line.text.split(' ');
+          return `<span class="term-prompt">${parts[0]}</span> <span class="term-cmd">${escapeHTML(parts.slice(1).join(' '))}</span>`;
+        case 'code':
+          return `<span class="term-dim">${escapeHTML(line.text)}</span>`;
+        case 'success':
+          return `<span class="term-success">${escapeHTML(line.text)}</span>`;
+        case 'blank':
+          return '&nbsp;';
+        default:
+          return escapeHTML(line.text);
+      }
+    }
+
+    function typeNext() {
+      if (heroIdx >= heroLines.length) {
+        // Add blinking cursor at end
+        const cursorDiv = document.createElement('div');
+        cursorDiv.innerHTML = '<span class="term-prompt">$</span> <span class="cursor-blink"></span>';
+        heroTerm.appendChild(cursorDiv);
+        return;
+      }
+
+      const line = heroLines[heroIdx];
+
+      if (heroCharIdx === 0) {
+        currentLineDiv = document.createElement('div');
+        currentLineDiv.style.minHeight = '1.7em';
+        heroTerm.appendChild(currentLineDiv);
+      }
+
+      if (prefersReduced || line.type === 'blank') {
+        currentLineDiv.innerHTML = getLineHTML(line);
+        heroIdx++;
+        heroCharIdx = 0;
+        setTimeout(typeNext, 100);
+        return;
+      }
+
+      // Type character by character for cmd and code lines
+      const fullHTML = getLineHTML(line);
+      // For simplicity, show full line with a typing delay
+      if (line.type === 'comment' || line.type === 'success') {
+        currentLineDiv.innerHTML = fullHTML;
+        heroIdx++;
+        heroCharIdx = 0;
+        setTimeout(typeNext, 400);
+      } else {
+        // Type out the text progressively
+        const plainText = line.text;
+        heroCharIdx++;
+        // Show partial text
+        const partial = plainText.substring(0, heroCharIdx);
+        const escapeHTML = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+        if (line.type === 'cmd') {
+          const parts = partial.split(' ');
+          currentLineDiv.innerHTML = `<span class="term-prompt">${parts[0]}</span> <span class="term-cmd">${escapeHTML(parts.slice(1).join(' '))}</span>`;
+        } else {
+          currentLineDiv.innerHTML = `<span class="term-dim">${escapeHTML(partial)}</span>`;
+        }
+
+        if (heroCharIdx >= plainText.length) {
+          heroIdx++;
+          heroCharIdx = 0;
+          setTimeout(typeNext, line.type === 'cmd' ? 300 : 80);
+        } else {
+          setTimeout(typeNext, 25);
+        }
+      }
+    }
+
+    // Start typing after a short delay
+    if (prefersReduced) {
+      heroLines.forEach(line => {
+        const div = document.createElement('div');
+        div.innerHTML = getLineHTML(line);
+        heroTerm.appendChild(div);
+      });
+    } else {
+      setTimeout(typeNext, 600);
+    }
+  </script>
+</body>
+</html>
